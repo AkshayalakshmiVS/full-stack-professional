@@ -9,10 +9,11 @@ frontend:
       commands:
         - npm run build
   artifacts:
-    baseDirectory: frontend/react/build   # React build output
+    baseDirectory: frontend/react/dist   # Vite outputs here
     files:
       - '**/*'
   cache:
     paths:
       - frontend/react/node_modules/**/* 
+
 
