@@ -116,7 +116,7 @@ public class CustomerService {
         }
 
         if (!changes) {
-           throw new RequestValidationException("no data changes found");
+            throw new RequestValidationException("no data changes found");
         }
 
         customerDao.updateCustomer(customer);
@@ -140,21 +140,20 @@ public class CustomerService {
 
     public byte[] getCustomerProfileImage(Integer customerId) {
         var customer = customerDao.selectCustomerById(customerId)
-                .map(customerDTOMapper)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "customer with id [%s] not found".formatted(customerId)
                 ));
 
-        if (StringUtils.isBlank(customer.profileImageId())) {
+        if (customer.getProfileImageId() == null) {
             throw new ResourceNotFoundException(
                     "customer with id [%s] profile image not found".formatted(customerId));
         }
 
-        byte[] profileImage = s3Service.getObject(
+        return s3Service.getObject(
                 s3Buckets.getCustomer(),
-                "profile-images/%s/%s".formatted(customerId, customer.profileImageId())
+                "profile-images/%s/%s".formatted(customerId, customer.getProfileImageId())
         );
-        return profileImage;
     }
+
 }
 
