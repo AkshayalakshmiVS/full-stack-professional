@@ -3,15 +3,16 @@ frontend:
   phases:
     preBuild:
       commands:
-        - cd react
+        - cd frontend/react
         - npm ci
     build:
       commands:
         - npm run build
   artifacts:
-    baseDirectory: react/build   # or wherever your build output goes
+    baseDirectory: frontend/react/build   # React build output
     files:
       - '**/*'
   cache:
     paths:
-      - react/node_modules/**/* 
+      - frontend/react/node_modules/**/* 
+
