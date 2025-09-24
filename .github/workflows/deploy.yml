@@ -1,39 +1,70 @@
-name: Deploy Spring Boot Backend
+name: Deploy Spring Boot Backend with Docker to AWS
 
 on:
   push:
     branches: [ main ]
 
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: full-stack-professional-backend
+  ECS_CLUSTER: fullstack-cluster
+  ECS_SERVICE: fullstack-service
+  ECS_TASK_DEFINITION: fullstack-task-definition
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     # 1. Checkout the repository
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     # 2. Set up JDK 21
     - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
         java-version: '21'
         distribution: 'temurin'
-        
-    # 3. Build JAR file from the backend folder
-    - name: Build JAR file
-      working-directory: ./backend   # folder containing pom.xml
-      run: mvn clean package -DskipTests
-      
-    # 4. Deploy JAR to EC2 and restart the app
-    - name: Deploy to EC2
-      run: |
-        # Copy the built JAR to EC2
-        scp -o StrictHostKeyChecking=no ./backend/target/*.jar ec2-user@$EC2_HOST:/home/ec2-user/app.jar
-        
-        # Stop any running instance and start the new one
-        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_HOST \
-        'pkill -f "java -jar" || true; nohup java -jar /home/ec2-user/app.jar > app.log 2>&1 &'
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
 
+    # 3. Build JAR file from backend folder
+    - name: Build JAR file
+      working-directory: ./backend
+      run: mvn clean package -DskipTests
+
+    # 4. Configure AWS credentials
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # 5. Log in to Amazon ECR
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+        docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+    # 6. Build Docker image
+    - name: Build Docker image
+      run: docker build -t ${{ env.ECR_REPOSITORY }} ./backend
+
+    # 7. Tag Docker image for ECR
+    - name: Tag Docker image
+      run: |
+        docker tag ${{ env.ECR_REPOSITORY }}:latest \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+
+    # 8. Push Docker image to ECR
+    - name: Push Docker image to ECR
+      run: |
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+
+    # 9. Deploy new image to ECS service
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --force-new-deployment
