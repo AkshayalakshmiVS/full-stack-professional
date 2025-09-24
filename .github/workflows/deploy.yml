@@ -9,23 +9,31 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    # 1. Checkout the repository
     - name: Checkout code
       uses: actions/checkout@v4
       
+    # 2. Set up JDK 21
     - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
         java-version: '21'
         distribution: 'temurin'
         
+    # 3. Build JAR file from the backend folder
     - name: Build JAR file
-      working-directory: ./backend   # adjust if your pom.xml is elsewhere
+      working-directory: ./backend   # folder containing pom.xml
       run: mvn clean package -DskipTests
       
+    # 4. Deploy JAR to EC2 and restart the app
     - name: Deploy to EC2
       run: |
-        scp -o StrictHostKeyChecking=no target/*.jar ec2-user@$EC2_HOST:/home/ec2-user/app.jar
-        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_HOST 'pkill -f "java -jar" || true; nohup java -jar /home/ec2-user/app.jar > app.log 2>&1 &'
+        # Copy the built JAR to EC2
+        scp -o StrictHostKeyChecking=no ./backend/target/*.jar ec2-user@$EC2_HOST:/home/ec2-user/app.jar
+        
+        # Stop any running instance and start the new one
+        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_HOST \
+        'pkill -f "java -jar" || true; nohup java -jar /home/ec2-user/app.jar > app.log 2>&1 &'
       env:
         EC2_HOST: ${{ secrets.EC2_HOST }}
 
