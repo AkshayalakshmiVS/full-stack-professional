@@ -3,7 +3,7 @@ name: Deploy Spring Boot Backend with Docker to AWS
 on:
   push:
     branches: [ main ]
-
+    
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: full-stack-professional-backend
